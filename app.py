@@ -3,8 +3,8 @@ import google.generativeai as genai
 from newspaper import Article
 from duckduckgo_search import DDGS
 import os
-import random
 import re
+import requests
 
 # Gemini Ayarı
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
@@ -42,8 +42,63 @@ def get_player_image(query):
     except: return None
     return None
 
+def get_tweet_content(url):
+    """Twitter/X linkinden tweet içeriğini çeker (FxTwitter API)"""
+    try:
+        # URL'yi FxTwitter formatına çevir
+        # https://x.com/user/status/123 -> https://api.fxtwitter.com/user/status/123
+        # https://twitter.com/user/status/123 -> https://api.fxtwitter.com/user/status/123
+        url = url.strip()
+        if "x.com/" in url or "twitter.com/" in url:
+            # Path kısmını çıkar
+            if "x.com/" in url:
+                path = url.split("x.com/")[1]
+            else:
+                path = url.split("twitter.com/")[1]
+            
+            api_url = f"https://api.fxtwitter.com/{path}"
+            response = requests.get(api_url, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if "tweet" in data:
+                    tweet = data["tweet"]
+                    author = tweet.get("author", {}).get("screen_name", "Bilinmiyor")
+                    text = tweet.get("text", "")
+                    return f"@{author}: {text}"
+        return None
+    except Exception as e:
+        return None
+
+def get_article_content(url):
+    """Haber sitesinden makale içeriğini çeker"""
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        return article.text
+    except:
+        return None
+
+def extract_content_from_url(url):
+    """URL'den içerik çeker - Twitter veya haber sitesi"""
+    url = url.strip()
+    
+    # Twitter/X linki mi kontrol et
+    if "x.com/" in url or "twitter.com/" in url:
+        content = get_tweet_content(url)
+        if content:
+            return content, "twitter"
+    
+    # Normal haber sitesi
+    content = get_article_content(url)
+    if content:
+        return content, "article"
+    
+    return None, None
+
 girdi_turu = st.radio("Girdi Türü", ["Haber Linki", "Manuel Metin"])
-girdi_verisi = st.text_area("Haber İçeriğini Girin", height=250)
+girdi_verisi = st.text_area("Haber İçeriğini veya Link'i Girin (Twitter/X desteklenir)", height=250)
 
 # KAYNAK FORMATI GÜNCELLENMİŞ TALİMAT
 tarz_talimati = """
@@ -63,7 +118,22 @@ if st.button("Haberleri ve Görselleri Hazırla"):
     else:
         with st.spinner('Analiz ediliyor ve görseller optimize ediliyor...'):
             try:
-                response = model.generate_content(f"{tarz_talimati}\n\nİçerik: {girdi_verisi}")
+                # İçeriği hazırla
+                icerik = girdi_verisi
+                
+                # Eğer link girilmişse içeriği çek
+                if girdi_turu == "Haber Linki" and girdi_verisi.startswith("http"):
+                    extracted, source_type = extract_content_from_url(girdi_verisi)
+                    if extracted:
+                        icerik = extracted
+                        if source_type == "twitter":
+                            st.info(f"🐦 Tweet içeriği çekildi!")
+                        else:
+                            st.info(f"📰 Haber içeriği çekildi!")
+                    else:
+                        st.warning("Link'ten içerik çekilemedi. Manuel metin olarak işleniyor.")
+                
+                response = model.generate_content(f"{tarz_talimati}\n\nİçerik: {icerik}")
                 tweetler = [t.strip() for t in response.text.split('---') if t.strip()]
 
                 for idx, tweet_ham in enumerate(tweetler):
