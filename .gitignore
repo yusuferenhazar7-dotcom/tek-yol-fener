@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Docker (not needed for Streamlit Cloud)
+Dockerfile
+.dockerignore
+
+# Secrets
+.env
+secrets.toml
