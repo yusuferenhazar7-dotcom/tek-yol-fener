@@ -325,100 +325,205 @@ def get_char_class(length):
     else:
         return "char-danger"
 
-# --- ANA ARAYÜZ ---
-col_input1, col_input2 = st.columns([1, 1])
+# --- SEKMELER ---
+tab1, tab2 = st.tabs(["📰 Haber Oluştur", "📦 Tweet Arşivi"])
 
-with col_input1:
-    girdi_turu = st.radio("📝 Girdi Türü", ["Haber Linki", "Manuel Metin"], horizontal=True)
+with tab1:
+    col_input1, col_input2 = st.columns([1, 1])
 
-with col_input2:
-    st.markdown("##### 💡 İpucu")
-    st.caption("Twitter/X ve haber sitesi linkleri desteklenir")
+    with col_input1:
+        girdi_turu = st.radio("📝 Girdi Türü", ["Haber Linki", "Manuel Metin"], horizontal=True)
 
-girdi_verisi = st.text_area(
-    "Haber İçeriğini veya Link'i Girin",
-    height=200,
-    placeholder="https://x.com/... veya haber metnini buraya yapıştırın..."
-)
+    with col_input2:
+        st.markdown("##### 💡 İpucu")
+        st.caption("Twitter/X ve haber sitesi linkleri desteklenir")
 
-# KAYNAK FORMATI GÜNCELLENMİŞ TALİMAT
-tarz_talimati = """
-Metni analiz et ve konuları '---' ile ayır. 100 habere kadar tek tek işle.
+    girdi_verisi = st.text_area(
+        "Haber İçeriğini veya Link'i Girin",
+        height=200,
+        placeholder="https://x.com/... veya haber metnini buraya yapıştırın..."
+    )
 
-KRİTİK KURALLAR:
-1. KAYNAK GÖSTERİMİ: Her haberin sonuna MUTLAKA kaynağı parantez içinde şu formatta ekle: (Kişi - Kurum).
-   Örn: (Yağız Sabuncuoğlu - Sports Digitale) veya (Nevzat Dindar - Vole).
-2. KARAKTER: Max 280 (Kaynak dahil).
-3. EMOJİ: Yasak.
-4. ETİKET: Önemli haberlerin başına '#SONDAKİKA | ' ekle.
-"""
+    # KAYNAK FORMATI GÜNCELLENMİŞ TALİMAT
+    tarz_talimati = """
+    Metni analiz et ve konuları '---' ile ayır. 100 habere kadar tek tek işle.
 
-st.markdown("")
-if st.button("🚀 Haberleri ve Görselleri Hazırla", use_container_width=True):
-    if not girdi_verisi:
-        st.warning("⚠️ İçerik girilmedi.")
-    else:
-        with st.spinner('🔄 Analiz ediliyor ve görseller hazırlanıyor...'):
-            try:
-                icerik = girdi_verisi
-                
-                if girdi_turu == "Haber Linki" and girdi_verisi.startswith("http"):
-                    extracted, source_type = extract_content_from_url(girdi_verisi)
-                    if extracted:
-                        icerik = extracted
-                        if source_type == "twitter":
-                            st.success("🐦 Tweet içeriği başarıyla çekildi!")
-                        else:
-                            st.success("📰 Haber içeriği başarıyla çekildi!")
-                    else:
-                        st.warning("⚠️ Link'ten içerik çekilemedi. Manuel metin olarak işleniyor.")
-                
-                response = model.generate_content(f"{tarz_talimati}\n\nİçerik: {icerik}")
-                tweetler = [t.strip() for t in response.text.split('---') if t.strip()]
+    KRİTİK KURALLAR:
+    1. KAYNAK GÖSTERİMİ: Her haberin sonuna MUTLAKA kaynağı parantez içinde şu formatta ekle: (Kişi - Kurum).
+       Örn: (Yağız Sabuncuoğlu - Sports Digitale) veya (Nevzat Dindar - Vole).
+    2. KARAKTER: Max 280 (Kaynak dahil).
+    3. EMOJİ: Yasak.
+    4. ETİKET: Önemli haberlerin başına '#SONDAKİKA | ' ekle.
+    """
 
-                st.markdown("---")
-                st.markdown("### 📋 Hazırlanan Haberler")
-                
-                for idx, tweet_ham in enumerate(tweetler):
-                    col1, col2 = st.columns([1.5, 1])
+    st.markdown("")
+    if st.button("🚀 Haberleri ve Görselleri Hazırla", use_container_width=True):
+        if not girdi_verisi:
+            st.warning("⚠️ İçerik girilmedi.")
+        else:
+            with st.spinner('🔄 Analiz ediliyor ve görseller hazırlanıyor...'):
+                try:
+                    icerik = girdi_verisi
                     
-                    with col1:
-                        char_len = len(tweet_ham)
-                        char_class = get_char_class(char_len)
-                        
-                        st.markdown(f'<span class="news-badge">Haber #{idx+1}</span>', unsafe_allow_html=True)
-                        st.code(tweet_ham, language=None)
-                        st.markdown(
-                            f'<span class="char-counter {char_class}">{char_len}/280 karakter</span>',
-                            unsafe_allow_html=True
-                        )
-
-                    with col2:
-                        metin_low = tweet_ham.lower()
-                        secilen_tk = next((k for t, k in TAKIMLAR.items() if t.lower() in metin_low), None)
-
-                        if secilen_tk:
-                            l_img = find_image(f"{secilen_tk}_logo.png")
-                            if l_img: st.image(l_img, use_container_width=True)
-
-                            if "#sondakika" in metin_low:
-                                sd_img = find_image(f"{secilen_tk}_sd.png")
-                                if sd_img: st.image(sd_img, caption="🔴 SON DAKİKA", use_container_width=True)
-
-                            oyuncular = re.findall(r'([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s[A-ZÇĞİÖŞÜ][a-zçğıöşü]+)+)', tweet_ham)
-                            if oyuncular:
-                                p_img = get_player_image(oyuncular[0])
-                                if p_img: st.image(p_img, caption=f"📸 {oyuncular[0]}", use_container_width=True)
-
-                            std_img = find_image(f"{secilen_tk}_std.png")
-                            if std_img: st.image(std_img, use_container_width=True)
+                    if girdi_turu == "Haber Linki" and girdi_verisi.startswith("http"):
+                        extracted, source_type = extract_content_from_url(girdi_verisi)
+                        if extracted:
+                            icerik = extracted
+                            if source_type == "twitter":
+                                st.success("🐦 Tweet içeriği başarıyla çekildi!")
+                            else:
+                                st.success("📰 Haber içeriği başarıyla çekildi!")
                         else:
-                            st.info("ℹ️ Takım tespit edilemedi.")
+                            st.warning("⚠️ Link'ten içerik çekilemedi. Manuel metin olarak işleniyor.")
                     
+                    response = model.generate_content(f"{tarz_talimati}\n\nİçerik: {icerik}")
+                    tweetler = [t.strip() for t in response.text.split('---') if t.strip()]
+
                     st.markdown("---")
+                    st.markdown("### 📋 Hazırlanan Haberler")
                     
-            except Exception as e:
-                st.error(f"❌ Hata: {e}")
+                    for idx, tweet_ham in enumerate(tweetler):
+                        col1, col2 = st.columns([1.5, 1])
+                        
+                        with col1:
+                            char_len = len(tweet_ham)
+                            char_class = get_char_class(char_len)
+                            
+                            st.markdown(f'<span class="news-badge">Haber #{idx+1}</span>', unsafe_allow_html=True)
+                            st.code(tweet_ham, language=None)
+                            st.markdown(
+                                f'<span class="char-counter {char_class}">{char_len}/280 karakter</span>',
+                                unsafe_allow_html=True
+                            )
+
+                        with col2:
+                            metin_low = tweet_ham.lower()
+                            secilen_tk = next((k for t, k in TAKIMLAR.items() if t.lower() in metin_low), None)
+
+                            if secilen_tk:
+                                l_img = find_image(f"{secilen_tk}_logo.png")
+                                if l_img: st.image(l_img, use_container_width=True)
+
+                                if "#sondakika" in metin_low:
+                                    sd_img = find_image(f"{secilen_tk}_sd.png")
+                                    if sd_img: st.image(sd_img, caption="🔴 SON DAKİKA", use_container_width=True)
+
+                                oyuncular = re.findall(r'([A-ZÇĞİÖŞÜ][a-zçğıöşü]+(?:\s[A-ZÇĞİÖŞÜ][a-zçğıöşü]+)+)', tweet_ham)
+                                if oyuncular:
+                                    p_img = get_player_image(oyuncular[0])
+                                    if p_img: st.image(p_img, caption=f"📸 {oyuncular[0]}", use_container_width=True)
+
+                                std_img = find_image(f"{secilen_tk}_std.png")
+                                if std_img: st.image(std_img, use_container_width=True)
+                            else:
+                                st.info("ℹ️ Takım tespit edilemedi.")
+                        
+                        st.markdown("---")
+                        
+                except Exception as e:
+                    st.error(f"❌ Hata: {e}")
+
+with tab2:
+    st.markdown("### 📦 Arşivlenen Tweetler")
+    st.caption("GitHub Actions tarafından otomatik toplanan Fenerbahçe haberleri")
+    
+    # Arşiv dosyasını oku
+    import json
+    from pathlib import Path
+    
+    archive_path = Path(__file__).parent / "tweets_archive.json"
+    
+    if archive_path.exists():
+        try:
+            with open(archive_path, "r", encoding="utf-8") as f:
+                archive = json.load(f)
+            
+            tweets = archive.get("tweets", [])
+            last_updated = archive.get("last_updated", "Bilinmiyor")
+            
+            st.info(f"📅 Son güncelleme: {last_updated[:19] if last_updated else 'Bilinmiyor'}")
+            st.markdown(f"**Toplam {len(tweets)} tweet arşivde**")
+            
+            if tweets:
+                # Filtre
+                col_filter1, col_filter2 = st.columns([1, 1])
+                with col_filter1:
+                    search_term = st.text_input("🔍 Ara", placeholder="Arama terimi...")
+                with col_filter2:
+                    sort_by = st.selectbox("📊 Sırala", ["En Yeni", "En Çok Beğeni", "En Çok RT"])
+                
+                # Filtreleme ve sıralama
+                filtered_tweets = tweets
+                if search_term:
+                    filtered_tweets = [t for t in tweets if search_term.lower() in t.get("text", "").lower()]
+                
+                if sort_by == "En Çok Beğeni":
+                    filtered_tweets = sorted(filtered_tweets, key=lambda x: x.get("likes", 0), reverse=True)
+                elif sort_by == "En Çok RT":
+                    filtered_tweets = sorted(filtered_tweets, key=lambda x: x.get("retweets", 0), reverse=True)
+                else:
+                    filtered_tweets = list(reversed(filtered_tweets))
+                
+                st.markdown("---")
+                
+                # Seçili tweetleri sakla
+                if "selected_tweets" not in st.session_state:
+                    st.session_state.selected_tweets = []
+                
+                # Tweet listesi
+                for idx, tweet in enumerate(filtered_tweets[:50]):
+                    with st.container():
+                        col1, col2, col3 = st.columns([0.5, 4, 1])
+                        
+                        with col1:
+                            is_selected = st.checkbox("", key=f"tweet_{tweet.get('id', idx)}", label_visibility="collapsed")
+                            if is_selected and tweet not in st.session_state.selected_tweets:
+                                st.session_state.selected_tweets.append(tweet)
+                            elif not is_selected and tweet in st.session_state.selected_tweets:
+                                st.session_state.selected_tweets.remove(tweet)
+                        
+                        with col2:
+                            st.markdown(f"**@{tweet.get('username', 'bilinmiyor')}**")
+                            st.caption(tweet.get("text", "")[:200])
+                            st.caption(f"❤️ {tweet.get('likes', 0):,} | 🔁 {tweet.get('retweets', 0):,}")
+                        
+                        with col3:
+                            st.link_button("🔗", tweet.get("url", "#"), use_container_width=True)
+                        
+                        st.markdown("---")
+                
+                # Seçili tweetlerden haber taslağı oluştur
+                if st.session_state.selected_tweets:
+                    st.markdown("### ✍️ Seçilen Tweetlerden Haber Taslağı")
+                    st.write(f"**{len(st.session_state.selected_tweets)} tweet seçildi**")
+                    
+                    if st.button("📝 Haber Taslağı Oluştur", key="create_draft"):
+                        combined_text = "\n\n".join([t.get("text", "") for t in st.session_state.selected_tweets])
+                        
+                        with st.spinner("Taslak hazırlanıyor..."):
+                            try:
+                                draft_response = model.generate_content(f"""
+                                Aşağıdaki tweetleri kullanarak profesyonel haber taslakları oluştur.
+                                Her haber için max 280 karakter, kaynak belirt, emoji kullanma.
+                                
+                                Tweetler:
+                                {combined_text}
+                                """)
+                                st.code(draft_response.text)
+                            except Exception as e:
+                                st.error(f"Hata: {e}")
+                    
+                    if st.button("🗑️ Seçimi Temizle", key="clear_selection"):
+                        st.session_state.selected_tweets = []
+                        st.rerun()
+            else:
+                st.info("Henüz arşivde tweet yok. GitHub Actions çalıştıktan sonra burada görünecek.")
+                
+        except Exception as e:
+            st.error(f"Arşiv okunamadı: {e}")
+    else:
+        st.warning("tweets_archive.json dosyası bulunamadı.")
+        st.info("GitHub Actions çalıştıktan sonra arşiv oluşturulacak.")
 
 # Footer
 st.markdown("""

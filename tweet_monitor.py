@@ -15,8 +15,10 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
-# Takip edilecek hesaplar
-ACCOUNTS = ["tekyolfener"]
+# Takip edilecek hesaplar (TWITTER_ACCOUNTS env var'dan virgülle ayrılmış)
+DEFAULT_ACCOUNTS = "tekyolfener,FenerGlobalOrg,Fenereditor,bbosports,ajansfenercom"
+ACCOUNTS = os.environ.get("TWITTER_ACCOUNTS", DEFAULT_ACCOUNTS).split(",")
+ACCOUNTS = [a.strip() for a in ACCOUNTS if a.strip()]
 
 # Dosya yolları
 ARCHIVE_FILE = Path(__file__).parent / "tweets_archive.json"
