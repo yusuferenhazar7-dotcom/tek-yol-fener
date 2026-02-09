@@ -484,7 +484,10 @@ with tab2:
                         
                         with col2:
                             st.markdown(f"**@{tweet.get('username', 'bilinmiyor')}**")
-                            st.caption(tweet.get("text", "")[:200])
+                            # Hazır taslak varsa göster
+                            if tweet.get("draft"):
+                                st.success(f"📝 {tweet.get('draft')}")
+                            st.caption(f"Orijinal: {tweet.get('text', '')[:150]}...")
                             st.caption(f"❤️ {tweet.get('likes', 0):,} | 🔁 {tweet.get('retweets', 0):,}")
                         
                         with col3:

@@ -81,12 +81,13 @@ def filter_recent_tweets(tweets: list, hours: int = 1) -> list:
     return recent
 
 def analyze_with_gemini(tweets: list) -> list:
-    """Gemini ile haber değeri analizi"""
+    """Gemini ile haber değeri analizi ve taslak oluşturma"""
     if not GEMINI_AVAILABLE or not os.environ.get("GEMINI_API_KEY"):
-        print("Gemini not available, returning all tweets")
+        print("Gemini not available, returning all tweets as-is")
         for tweet in tweets:
             tweet["is_newsworthy"] = True
             tweet["news_summary"] = tweet["text"][:200]
+            tweet["draft"] = tweet["text"][:280]
         return tweets
     
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -95,24 +96,41 @@ def analyze_with_gemini(tweets: list) -> list:
     analyzed = []
     for tweet in tweets:
         prompt = f"""
-Bu tweet haber değeri taşıyor mu? Fenerbahçe ile ilgili önemli bir gelişme, transfer, maç sonucu, 
-resmi açıklama veya önemli bir haber mi?
+Bu tweet'i analiz et ve haber taslağı oluştur.
 
 Tweet: {tweet['text']}
+Kaynak: @{tweet['username']}
+
+GÖREV:
+1. Bu tweet haber değeri taşıyor mu? (transfer, maç sonucu, resmi açıklama, önemli gelişme)
+2. Haber değeri varsa, profesyonel bir haber taslağı oluştur.
+
+KURRALLAR:
+- Maksimum 280 karakter
+- Emoji KULLANMA
+- Sonuna parantez içinde kaynak ekle: (@{tweet['username']})
+- Önemli haberlere başa #SONDAKİKA | ekle
 
 JSON formatında yanıt ver:
-{{"is_newsworthy": true/false, "reason": "kısa açıklama", "suggested_headline": "varsa başlık önerisi"}}
+{{
+  "is_newsworthy": true/false,
+  "reason": "neden haber değeri var/yok",
+  "draft": "hazır tweet taslağı (max 280 karakter, kaynak dahil)"
+}}
 """
         try:
             response = model.generate_content(prompt)
-            result = json.loads(response.text.strip().replace("```json", "").replace("```", ""))
+            text = response.text.strip().replace("```json", "").replace("```", "").strip()
+            result = json.loads(text)
             tweet["is_newsworthy"] = result.get("is_newsworthy", False)
-            tweet["news_summary"] = result.get("suggested_headline", tweet["text"][:200])
             tweet["analysis_reason"] = result.get("reason", "")
+            tweet["draft"] = result.get("draft", f"{tweet['text'][:250]} (@{tweet['username']})")
             analyzed.append(tweet)
+            print(f"   ✓ @{tweet['username']}: {'Haber' if tweet['is_newsworthy'] else 'Değil'}")
         except Exception as e:
-            print(f"Error analyzing tweet: {e}")
+            print(f"   ✗ Analiz hatası: {e}")
             tweet["is_newsworthy"] = False
+            tweet["draft"] = ""
             analyzed.append(tweet)
     
     return analyzed
@@ -145,10 +163,9 @@ def main():
         tweets = fetch_tweets(username)
         print(f"   Toplam {len(tweets)} tweet bulundu")
         
-        # Son 1 saat filtresi (GitHub Actions'da aktif olacak)
-        # Şimdilik tüm tweetleri al (test için)
-        recent = tweets  # filter_recent_tweets(tweets, hours=1)
-        print(f"   Son dönem: {len(recent)} tweet")
+        # Son 1 saat filtresi - sadece yeni tweetler
+        recent = filter_recent_tweets(tweets, hours=1)
+        print(f"   Son 1 saat: {len(recent)} tweet")
         
         # Yeni tweetleri filtrele
         for tweet in recent:
