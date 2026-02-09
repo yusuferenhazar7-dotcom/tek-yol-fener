@@ -7,6 +7,9 @@ on:
   workflow_dispatch:
     # Manuel tetikleme
 
+permissions:
+  contents: write
+
 jobs:
   monitor:
     runs-on: ubuntu-latest
