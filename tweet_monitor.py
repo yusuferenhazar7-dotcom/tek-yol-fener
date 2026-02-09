@@ -163,14 +163,13 @@ def main():
         tweets = fetch_tweets(username)
         print(f"   Toplam {len(tweets)} tweet bulundu")
         
-        # Son 1 saat filtresi - sadece yeni tweetler
-        recent = filter_recent_tweets(tweets, hours=1)
-        print(f"   Son 1 saat: {len(recent)} tweet")
-        
-        # Yeni tweetleri filtrele
-        for tweet in recent:
+        # NOT: Syndication API popüler tweetleri döndürür, kronolojik değil
+        # Bu yüzden sadece ID bazlı filtreleme yapıyoruz
+        # Yeni tweetleri filtrele (daha önce işlenmemişler)
+        for tweet in tweets:
             if tweet["id"] not in existing_ids:
                 new_tweets.append(tweet)
+                existing_ids.add(tweet["id"])  # Tekrar eklemeyi önle
     
     print(f"\n🆕 {len(new_tweets)} yeni tweet bulundu")
     
